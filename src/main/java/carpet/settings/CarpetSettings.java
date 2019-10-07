@@ -177,6 +177,9 @@ public class CarpetSettings
     @Rule( desc = "Phantoms follows mobcap", category = FEATURE )
     public static boolean phantomsRespectMobcap = false;
 
+    @Rule( desc = "Pillager patrols' lag prevention", category = FEATURE )
+    public static boolean cancelPillagerPatrols = false;
+
     @Rule(
             desc = "Enables /log command to monitor events in the game via chat and overlays",
             category = COMMAND,

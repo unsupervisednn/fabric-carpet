@@ -132,7 +132,8 @@
     "PistonHandler_movableTEMixin",
     "BeaconMixin",
     "PhantomSpawnerMixin",
-    "ServerChunkManagerAccessor"
+    "ServerChunkManagerAccessor",
+    "PatrolEntityMixin"
   ],
   "client": [
     "RenderTickCounter_tickSpeedMixin",
