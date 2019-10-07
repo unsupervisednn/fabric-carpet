@@ -71,14 +71,14 @@ public class SpawnCommand
                                                 c.getSource(),
                                                 getInteger(c, "ticks"),
                                                 getString(c, "counter")))))).
-                then(literal("mocking").
+                then(literal("mocking").requires((player) -> CarpetSettings.commandSpawnOP).
                         then(argument("to do or not to do?", BoolArgumentType.bool()).
                             executes( (c) -> toggleMocking(c.getSource(), BoolArgumentType.getBool(c, "to do or not to do?"))))).
-                then(literal("rates").
+                then(literal("rates").requires((player) -> CarpetSettings.commandSpawnOP).
                         executes( (c) -> generalMobcaps(c.getSource())).
-                        then(literal("reset").
+                        then(literal("reset").requires((player) -> CarpetSettings.commandSpawnOP).
                                 executes( (c) -> resetSpawnRates(c.getSource()))).
-                        then(argument("type", word()).
+                        then(argument("type", word()).requires((player) -> CarpetSettings.commandSpawnOP).
                                 suggests( (c, b) -> suggestMatching(Arrays.stream(EntityCategory.values()).map(EntityCategory::getName),b)).
                                 then(argument("rounds", integer(0)).
                                         suggests( (c, b) -> suggestMatching(new String[]{"1"},b)).
@@ -88,7 +88,7 @@ public class SpawnCommand
                                                 getInteger(c, "rounds")))))).
                 then(literal("mobcaps").
                         executes( (c) -> generalMobcaps(c.getSource())).
-                        then(literal("set").
+                        then(literal("set").requires((player) -> CarpetSettings.commandSpawnOP).
                                 then(argument("cap (hostile)", integer(1,1400)).
                                         executes( (c) -> setMobcaps(c.getSource(), getInteger(c, "cap (hostile)"))))).
                         then(argument("dimension", DimensionArgumentType.dimension()).

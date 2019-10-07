@@ -129,7 +129,10 @@
     "PistonBlockEntity_movableTEMixin",
     "World_movableTEMixin",
     "WorldChunk_movableTEMixin",
-    "PistonHandler_movableTEMixin"
+    "PistonHandler_movableTEMixin",
+    "BeaconMixin",
+    "PhantomSpawnerMixin",
+    "ServerChunkManagerAccessor"
   ],
   "client": [
     "RenderTickCounter_tickSpeedMixin",

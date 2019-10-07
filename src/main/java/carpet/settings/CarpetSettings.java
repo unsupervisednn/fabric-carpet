@@ -144,6 +144,9 @@ public class CarpetSettings
     )
     public static boolean hopperCounters = false;
 
+    @Rule( desc = "Redstone-powered beacons will load chunks.", category = {EXPERIMENTAL, FEATURE} )
+    public static boolean beaconChunkLoading = false;
+
     @Rule( desc = "Guardians turn into Elder Guardian when struck by lightning", category = FEATURE )
     public static boolean renewableSponges = false;
 
@@ -162,8 +165,17 @@ public class CarpetSettings
     @Rule(desc = "Enables /spawn command for spawn tracking", category = COMMAND)
     public static boolean commandSpawn = true;
 
-    @Rule(desc = "Enables /tick command to control game clocks", category = COMMAND)
+    @Rule(desc = "Enables /spawn command for spawn changing", category = COMMAND)
+    public static boolean commandSpawnOP = false;
+
+    @Rule(desc = "Enables /tick command to watch game clocks", category = COMMAND)
     public static boolean commandTick = true;
+
+    @Rule(desc = "Enables /tick command to control game clocks", category = COMMAND)
+    public static boolean commandTickOP = false;
+
+    @Rule( desc = "Phantoms follows mobcap", category = FEATURE )
+    public static boolean phantomsRespectMobcap = false;
 
     @Rule(
             desc = "Enables /log command to monitor events in the game via chat and overlays",

@@ -27,12 +27,12 @@ public class TickCommand
     {
         LiteralArgumentBuilder<ServerCommandSource> literalargumentbuilder = literal("tick").
                 requires((player) -> CarpetSettings.commandTick).
-                then(literal("rate").
+                then(literal("rate").requires((player) -> CarpetSettings.commandTickOP).
                         executes((c) -> queryTps(c.getSource())).
                         then(argument("rate", floatArg(0.1F, 500.0F)).
                                 suggests( (c, b) -> suggestMatching(new String[]{"20.0"},b)).
                                 executes((c) -> setTps(c.getSource(), getFloat(c, "rate"))))).
-                then(literal("warp").
+                then(literal("warp").requires((player) -> CarpetSettings.commandTickOP).
                         executes( (c)-> setWarp(c.getSource(), 0, null)).
                         then(argument("ticks", integer(0,4000000)).
                                 suggests( (c, b) -> suggestMatching(new String[]{"3600","72000"},b)).
@@ -42,13 +42,13 @@ public class TickCommand
                                                 c.getSource(),
                                                 getInteger(c,"ticks"),
                                                 getString(c, "tail command")))))).
-                then(literal("freeze").executes( (c)-> toggleFreeze(c.getSource()))).
-                then(literal("step").
+                then(literal("freeze").requires((player) -> CarpetSettings.commandTickOP).executes( (c)-> toggleFreeze(c.getSource()))).
+                then(literal("step").requires((player) -> CarpetSettings.commandTickOP).
                         executes((c) -> step(1)).
                         then(argument("ticks", integer(1,72000)).
                                 suggests( (c, b) -> suggestMatching(new String[]{"20"},b)).
                                 executes((c) -> step(getInteger(c,"ticks"))))).
-                then(literal("superHot").executes( (c)-> toggleSuperHot(c.getSource()))).
+                then(literal("superHot").requires((player) -> CarpetSettings.commandTickOP).executes( (c)-> toggleSuperHot(c.getSource()))).
                 then(literal("health").
                         executes( (c) -> healthReport(c.getSource(), 100)).
                         then(argument("ticks", integer(20,24000)).
