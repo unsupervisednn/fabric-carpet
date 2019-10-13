@@ -27,4 +27,9 @@ public class ServerPlayNetworkHandler_coreMixin {
     private void onPlayerDisconnect(Text reason, CallbackInfo ci) {
         CarpetServer.onPlayerLoggedOut(this.player);
     }
+
+    @Inject(method = "onCustomPayload", at = @At("HEAD"))
+    private void processCustomPacket(CustomPayloadC2SPacket packet, CallbackInfo ci) {
+        CarpetServer.pluginChannelManager.process(this.player, packet);
+    }
 }

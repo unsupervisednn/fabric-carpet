@@ -8,6 +8,8 @@ import java.util.Random;
 import carpet.commands.*;
 import carpet.helpers.TickSpeed;
 import carpet.logging.LoggerRegistry;
+import carpet.network.PluginChannelManager;
+import carpet.network.channels.StructureChannel;
 import carpet.script.CarpetScriptServer;
 import carpet.settings.CarpetSettings;
 import carpet.settings.SettingsManager;
@@ -24,6 +26,7 @@ public class CarpetServer // static for now - easier to handle all around the co
     public static MinecraftServer minecraft_server;
     public static CarpetScriptServer scriptServer;
     public static SettingsManager settingsManager;
+    public static PluginChannelManager pluginChannelManager;
     public static List<CarpetExtension> extensions = new ArrayList<>();
 
     // Separate from onServerLoaded, because a server can be loaded multiple times in singleplayer
@@ -42,6 +45,10 @@ public class CarpetServer // static for now - easier to handle all around the co
 
     public static void onServerLoaded(MinecraftServer server)
     {
+        pluginChannelManager = new PluginChannelManager(server);
+        pluginChannelManager.register(new StructureChannel());
+        extensions.add(pluginChannelManager);
+
         CarpetServer.minecraft_server = server;
         settingsManager.attachServer(server);
         extensions.forEach(e -> {
@@ -59,6 +66,7 @@ public class CarpetServer // static for now - easier to handle all around the co
         TickSpeed.tick(server);
         HUDController.update_hud(server);
         scriptServer.tick();
+        StructureChannel.instance.tick();
 
         //in case something happens
         CarpetSettings.impendingFillSkipUpdates = false;

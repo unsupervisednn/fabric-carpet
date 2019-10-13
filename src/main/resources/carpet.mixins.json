@@ -133,7 +133,10 @@
     "BeaconMixin",
     "PhantomSpawnerMixin",
     "ServerChunkManagerAccessor",
-    "PatrolEntityMixin"
+    "PatrolEntityMixin",
+
+    "MixinThreadedAnvilChunkStorage",
+    "CustomPayloadC2SPacketAccessor"
   ],
   "client": [
     "RenderTickCounter_tickSpeedMixin",
