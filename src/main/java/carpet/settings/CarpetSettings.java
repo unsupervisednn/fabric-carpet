@@ -165,6 +165,9 @@ public class CarpetSettings
     @Rule(desc = "Enables /spawn command for spawn tracking", category = COMMAND)
     public static boolean commandSpawn = true;
 
+    @Rule(desc = "Enables /stats command for stats tracking", category = COMMAND)
+    public static boolean commandStats = true;
+
     @Rule(desc = "Enables /spawn command for spawn changing", category = COMMAND)
     public static boolean commandSpawnOP = false;
 

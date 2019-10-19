@@ -91,6 +91,7 @@ public class CarpetServer // static for now - easier to handle all around the co
         ScriptCommand.register(dispatcher);
         MobAICommand.register(dispatcher);
         BeaconGridCommand.register(dispatcher);
+        StatsCommand.register(dispatcher);
         extensions.forEach(e -> e.registerCommands(dispatcher));
         //TestCommand.register(dispatcher);
     }
