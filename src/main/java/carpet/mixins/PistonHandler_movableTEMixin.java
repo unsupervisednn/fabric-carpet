@@ -112,8 +112,8 @@ public abstract class PistonHandler_movableTEMixin
     private BlockState redirectGetBlockState_1_B(World world, BlockPos pos) {
         return blockState_1 = world.getBlockState(pos);
     }
-    @Redirect(method = "tryMove",
-            at = @At(value = "FIELD", target = "Lnet/minecraft/block/Blocks;SLIME_BLOCK:Lnet/minecraft/block/Block;"))
+//    @Redirect(method = "tryMove",
+//            at = @At(value = "FIELD", target = "Lnet/minecraft/block/Blocks;SLIME_BLOCK:Lnet/minecraft/block/Block;"))
     //Thanks to Earthcomputer for showing how to redirect FIELD access like this
     /**
      * Makes backwards stickyness work with sticky non-slimeblocks as well.
