@@ -1,8 +1,10 @@
 package carpet.script;
 
+import carpet.script.bundled.BundledModule;
+import carpet.script.value.MapValue;
+import carpet.script.value.StringValue;
 import carpet.settings.CarpetSettings;
 import carpet.CarpetServer;
-import carpet.script.bundled.CameraPathModule;
 import carpet.script.bundled.FileModule;
 import carpet.script.bundled.ModuleInterface;
 import carpet.script.exception.CarpetExpressionException;
@@ -19,6 +21,7 @@ import net.minecraft.util.math.BlockPos;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +43,8 @@ public class CarpetScriptServer
     public CarpetEventServer events;
 
     public static List<ModuleInterface> bundledModuleData = new ArrayList<ModuleInterface>(){{
-        add(new CameraPathModule());
+        add(new BundledModule("camera"));
+        add(new BundledModule("event_test"));
     }};
 
     public CarpetScriptServer()
@@ -58,9 +62,10 @@ public class CarpetScriptServer
     {
         if (CarpetSettings.scriptsAutoload)
         {
+            Messenger.m(CarpetServer.minecraft_server.getCommandSource(), "Autoloading world scarpet apps");
             for (String moduleName: listAvailableModules(false))
             {
-                addScriptHost(CarpetServer.minecraft_server.getCommandSource(), moduleName, true);
+                addScriptHost(CarpetServer.minecraft_server.getCommandSource(), moduleName, true, true);
             }
         }
 
@@ -125,7 +130,7 @@ public class CarpetScriptServer
 
     private ScriptHost createMinecraftScriptHost(String name, ModuleInterface module, boolean perPlayer, ServerCommandSource source)
     {
-        ScriptHost host = new ScriptHost(name, module, perPlayer );
+        ScriptHost host = new ScriptHost(name, module, perPlayer, null );
         host.globalVariables.put("_x", (c, t) -> Value.ZERO);
         host.globalVariables.put("_y", (c, t) -> Value.ZERO);
         host.globalVariables.put("_z", (c, t) -> Value.ZERO);
@@ -155,7 +160,7 @@ public class CarpetScriptServer
         return host;
     }
 
-    public boolean addScriptHost(ServerCommandSource source, String name, boolean perPlayer)
+    public boolean addScriptHost(ServerCommandSource source, String name, boolean perPlayer, boolean autoload)
     {
         //TODO add per player modules to support player actions better on a server
         name = name.toLowerCase(Locale.ROOT);
@@ -163,32 +168,56 @@ public class CarpetScriptServer
         ScriptHost newHost = createMinecraftScriptHost(name, module, perPlayer, source);
         if (newHost == null)
         {
-            Messenger.m(source, "r Failed to add a module");
+            Messenger.m(source, "r Failed to add "+name+" app");
             return false;
         }
         if (module == null)
         {
-            Messenger.m(source, "r Unable to locate the package, but created empty host "+name+" instead");
+            Messenger.m(source, "r Unable to locate the app, but created empty "+name+" app instead");
             modules.put(name, newHost);
             return true;
         }
         String code = module.getCode();
         if (module.getCode() == null)
         {
-            Messenger.m(source, "r Unable to load the package - not found");
+            Messenger.m(source, "r Unable to load "+name+" app - not found");
             return false;
         }
 
         modules.put(name, newHost);
 
+        if (!addConfig(source, name) && autoload)
+        {
+            removeScriptHost(source, name);
+            return false;
+        }
         addEvents(source, name);
-
         addCommand(source, name);
         return true;
     }
 
 
-    public void addEvents(ServerCommandSource source, String hostName)
+    private boolean addConfig(ServerCommandSource source, String hostName)
+    {
+        ScriptHost host = modules.get(hostName);
+        if (host == null || !host.globalFunctions.containsKey("__config"))
+        {
+            return false;
+        }
+        try
+        {
+            Value ret = host.callUDF(BlockPos.ORIGIN, source, host.globalFunctions.get("__config"), Collections.emptyList());
+            if (!(ret instanceof MapValue)) return false;
+            Map<Value, Value> config = ((MapValue) ret).getMap();
+            host.setPerPlayer(config.getOrDefault(new StringValue("scope"), new StringValue("player")).getString().equalsIgnoreCase("player"));
+            return config.getOrDefault(new StringValue("stay_loaded"), Value.FALSE).getBoolean();
+        }
+        catch (NullPointerException | InvalidCallbackException ignored)
+        {
+        }
+        return false;
+    }
+    private void addEvents(ServerCommandSource source, String hostName)
     {
         ScriptHost host = modules.get(hostName);
         if (host == null)
@@ -200,14 +229,14 @@ public class CarpetScriptServer
             if (!fun.startsWith("__on_"))
                 continue;
             String event = fun.replaceFirst("__on_","");
-            if (!events.eventHandlers.containsKey(event))
+            if (!CarpetEventServer.Event.byName.containsKey(event))
                 continue;
             events.addEvent(event, hostName, fun);
         }
     }
 
 
-    public void addCommand(ServerCommandSource source, String hostName)
+    private void addCommand(ServerCommandSource source, String hostName)
     {
         ScriptHost host = modules.get(hostName);
         if (host == null)
@@ -343,10 +372,10 @@ public class CarpetScriptServer
     public boolean runas(BlockPos origin, ServerCommandSource source, String hostname, String udf_name, List<LazyValue> argv)
     {
         ScriptHost host = globalHost;
-        if (hostname != null)
-            host = modules.get(hostname).retrieveForExecution(source);
         try
         {
+            if (hostname != null)
+                host = modules.get(hostname).retrieveForExecution(source);
             host.callUDF(origin, source, host.globalFunctions.get(udf_name), argv);
         }
         catch (NullPointerException | InvalidCallbackException npe)
@@ -359,5 +388,17 @@ public class CarpetScriptServer
     public void tick()
     {
         events.tick();
+        for (ScriptHost host : modules.values())
+        {
+            host.tick();
+        }
+    }
+
+    public void onClose()
+    {
+        for (ScriptHost host : modules.values())
+        {
+            host.onClose();
+        }
     }
 }

@@ -27,7 +27,7 @@ import static carpet.settings.RuleCategory.SURVIVAL;
 
 public class CarpetSettings
 {
-    public static final String carpetVersion = "1.1.1+v191002";
+    public static final String carpetVersion = "1.1.3+v191016";
     public static final Logger LOG = LogManager.getLogger();
     public static boolean skipGenerationChecks = false;
     public static boolean impendingFillSkipUpdates = false;
@@ -153,6 +153,13 @@ public class CarpetSettings
     @Rule( desc = "Pistons can push block entities, like hoppers, chests etc.", category = {EXPERIMENTAL, FEATURE} )
     public static boolean movableBlockEntities = false;
 
+    @Rule(
+            desc = "Orange stained glass behaves like slime, but doesn't stick to it",
+            extra = "Only available for 1.14. in 1.15 use honey instead",
+            category = {EXPERIMENTAL, FEATURE}
+    )
+    public static boolean honeySlime = false;
+
     @Rule( desc = "Saplings turn into dead shrubs in hot climates and no water access", category = FEATURE )
     public static boolean desertShrubs = false;
 
@@ -185,8 +192,8 @@ public class CarpetSettings
 
     @Rule(
             desc = "Enables /log command to monitor events in the game via chat and overlays",
-            category = COMMAND,
-            validate = Validator.WIP.class
+            category = COMMAND//,
+            //validate = Validator.WIP.class
     )
     public static boolean commandLog = true;
 
@@ -456,4 +463,10 @@ public class CarpetSettings
             category = BUGFIX
     )
     public static boolean horseWanderingFix = false;
+    
+    @Rule(
+            desc = "Allows structure mobs to spawn in flat worlds",
+            category = {EXPERIMENTAL, CREATIVE}
+    )
+    public static boolean flatWorldStructureSpawning = false;
 }

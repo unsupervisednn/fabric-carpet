@@ -1,5 +1,6 @@
 {
   "required": true,
+  "refmap": "fabric-carpet-refmap.json",
   "package": "carpet.mixins",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
@@ -66,6 +67,7 @@
     "PlayerEntity_parrotMixin",
     "SaplingBlockMixin",
     "EntityMixin",
+    "FlatChunkGeneratorMixin",
 
     "GuardianEntityMixin",
     "DesertPyramidFeatureMixin",
@@ -123,6 +125,7 @@
     "Entity_scarpetEventsMixin",
     "LivingEntity_scarpetEventsMixin",
     "DamageTracker_scarpetEventMixin",
+    "ServerPlayerEntity_scarpetEventMixin",
 
 
     "PistonBlock_movableTEMixin",

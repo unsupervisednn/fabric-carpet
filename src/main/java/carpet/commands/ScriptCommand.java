@@ -208,13 +208,13 @@ public class ScriptCommand
                         suggests( (cc, bb) -> suggestMatching(CarpetServer.scriptServer.listAvailableModules(true),bb)).
                         executes((cc) ->
                         {
-                            boolean success = CarpetServer.scriptServer.addScriptHost(cc.getSource(), StringArgumentType.getString(cc, "package"), true);
+                            boolean success = CarpetServer.scriptServer.addScriptHost(cc.getSource(), StringArgumentType.getString(cc, "package"), true, false);
                             return success?1:0;
                         }).
                         then(literal("shared").
                                 executes((cc) ->
                                 {
-                                    boolean success = CarpetServer.scriptServer.addScriptHost(cc.getSource(), StringArgumentType.getString(cc, "package"), false);
+                                    boolean success = CarpetServer.scriptServer.addScriptHost(cc.getSource(), StringArgumentType.getString(cc, "package"), false, false);
                                     return success?1:0;
                                 }
                                 )
@@ -233,7 +233,7 @@ public class ScriptCommand
                 executes( (cc) -> listEvents(cc.getSource())).
                 then(literal("add_to").
                         then(argument("event", StringArgumentType.word()).
-                                suggests( (cc, bb) -> suggestMatching(CarpetServer.scriptServer.events.eventHandlers.keySet() ,bb)).
+                                suggests( (cc, bb) -> suggestMatching(CarpetEventServer.Event.byName.keySet() ,bb)).
                                 then(argument("call", StringArgumentType.word()).
                                         suggests( (cc, bb) -> suggestMatching(suggestFunctionCalls(cc), bb)).
                                         executes( (cc) -> CarpetServer.scriptServer.events.addEvent(
@@ -253,9 +253,9 @@ public class ScriptCommand
                                                         )?1:0)))))).
                 then(literal("remove_from").
                         then(argument("event", StringArgumentType.word()).
-                                suggests( (cc, bb) -> suggestMatching(CarpetServer.scriptServer.events.eventHandlers.keySet() ,bb)).
+                                suggests( (cc, bb) -> suggestMatching(CarpetEventServer.Event.byName.keySet() ,bb)).
                                 then(argument("call", StringArgumentType.greedyString()).
-                                        suggests( (cc, bb) -> suggestMatching(CarpetServer.scriptServer.events.eventHandlers.get(StringArgumentType.getString(cc, "event")).callList.stream().map(CarpetEventServer.Callback::toString), bb)).
+                                        suggests( (cc, bb) -> suggestMatching(CarpetEventServer.Event.byName.get(StringArgumentType.getString(cc, "event")).handler.callList.stream().map(CarpetEventServer.Callback::toString), bb)).
                                         executes( (cc) -> CarpetServer.scriptServer.events.removeEvent(
                                                 StringArgumentType.getString(cc, "event"),
                                                 StringArgumentType.getString(cc, "call")
@@ -293,14 +293,14 @@ public class ScriptCommand
     private static int listEvents(ServerCommandSource source)
     {
         Messenger.m(source, "w Lists ALL event handlers:");
-        for (String event: CarpetServer.scriptServer.events.eventHandlers.keySet())
+        for (CarpetEventServer.Event event: CarpetEventServer.Event.values())
         {
             boolean shownEvent = false;
-            for (CarpetEventServer.Callback c: CarpetServer.scriptServer.events.eventHandlers.get(event).callList)
+            for (CarpetEventServer.Callback c: event.handler.callList)
             {
                 if (!shownEvent)
                 {
-                    Messenger.m(source, "w Handlers for "+event+": ");
+                    Messenger.m(source, "w Handlers for "+event.name+": ");
                     shownEvent = true;
                 }
                 Messenger.m(source, "w  - "+c.udf+(c.host==null?"":" (from "+c.host+")"));

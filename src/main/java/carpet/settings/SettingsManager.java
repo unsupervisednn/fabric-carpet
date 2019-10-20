@@ -74,6 +74,12 @@ public class SettingsManager
         notifyPlayersCommandsChanged();
     }
 
+    public void detachServer()
+    {
+        for (ParsedRule<?> rule : rules.values()) rule.resetToDefault(server.getCommandSource());
+        server = null;
+    }
+
     public void parseSettingsClass(Class settingsClass)
     {
         for (Field f : settingsClass.getDeclaredFields())
@@ -165,7 +171,7 @@ public class SettingsManager
 
     public void notifyPlayersCommandsChanged()
     {
-        if (server.getPlayerManager() == null)
+        if (server == null || server.getPlayerManager() == null)
         {
             return;
         }
