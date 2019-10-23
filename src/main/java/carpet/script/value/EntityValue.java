@@ -11,6 +11,7 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.client.network.packet.EntityPassengersSetS2CPacket;
 import net.minecraft.client.network.packet.EntityPositionS2CPacket;
+import net.minecraft.client.network.packet.PlayerPositionLookS2CPacket;
 import net.minecraft.command.EntitySelector;
 import net.minecraft.command.EntitySelectorReader;
 import net.minecraft.entity.Entity;
@@ -45,9 +46,12 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -421,8 +425,25 @@ public class EntityValue extends Value
     private static void updatePosition(Entity e)
     {
         if (e instanceof ServerPlayerEntity)
+        {
             // TODO next - figure out proper way of informting client about pos changes
-            ((ServerPlayerEntity)e).networkHandler.requestTeleport(e.x, e.y, e.z, e.yaw, e.pitch);
+            Set<PlayerPositionLookS2CPacket.Flag> allFlags = EnumSet.allOf(PlayerPositionLookS2CPacket.Flag.class);
+            double double_1 =
+            double double_4 = allFlags.contains(PlayerPositionLookS2CPacket.Flag.X) ? this.player.x : 0.0D;
+            double double_5 = allFlags.contains(PlayerPositionLookS2CPacket.Flag.Y) ? this.player.y : 0.0D;
+            double double_6 = allFlags.contains(PlayerPositionLookS2CPacket.Flag.Z) ? this.player.z : 0.0D;
+            float float_3 = allFlags.contains(PlayerPositionLookS2CPacket.Flag.Y_ROT) ? this.player.yaw : 0.0F;
+            float float_4 = allFlags.contains(PlayerPositionLookS2CPacket.Flag.X_ROT) ? this.player.pitch : 0.0F;
+            this.requestedTeleportPos = new Vec3d(double_1, double_2, double_3);
+            if (++this.requestedTeleportId == Integer.MAX_VALUE)
+            {
+                this.requestedTeleportId = 0;
+            }
+
+            this.teleportRequestTick = this.ticks;
+            this.player.setPositionAnglesAndUpdate(double_1, double_2, double_3, float_1, float_2);
+            this.player.networkHandler.sendPacket(new PlayerPositionLookS2CPacket(double_1 - double_4, double_2 - double_5, double_3 - double_6, float_1 - float_3, float_2 - float_4, set_1, this.requestedTeleportId));
+        }
         else
             ((ServerWorld)e.getEntityWorld()).method_14178().sendToNearbyPlayers(e,new EntityPositionS2CPacket(e));
     }
