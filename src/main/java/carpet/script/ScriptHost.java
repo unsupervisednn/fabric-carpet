@@ -9,9 +9,12 @@ import carpet.script.value.NumericValue;
 import carpet.script.value.StringValue;
 import carpet.script.value.Value;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 
 import java.math.BigInteger;
@@ -105,15 +108,15 @@ public class ScriptHost
     {
         return globalFunctions.keySet().stream().filter((str) -> !str.startsWith("_")).collect(Collectors.toList());
     }
-    public List<String> getAvailableFunctions()
+    public List<String> getAvailableFunctions(boolean all)
     {
-        return globalFunctions.keySet().stream().filter((str) -> !str.startsWith("__")).collect(Collectors.toList());
+        return globalFunctions.keySet().stream().filter((str) -> all || !str.startsWith("__")).collect(Collectors.toList());
     }
 
     public String call(ServerCommandSource source, String call, List<Integer> coords, String arg)
     {
         if (CarpetServer.scriptServer.stopAll)
-            return "SCRIPTING PAUSED";
+            return "SCARPET PAUSED";
         UserDefinedFunction acf = globalFunctions.get(call);
         if (acf == null)
             return "UNDEFINED";
@@ -288,11 +291,18 @@ public class ScriptHost
     {
         if (this.saveTimeout > 0)
             dumpState();
+        String markerName = ExpressionInspector.MARKER_STRING+"_"+((getName()==null)?"":getName());
+        for (ServerWorld world : CarpetServer.minecraft_server.getWorlds())
+        {
+            for (Entity e : world.getEntities(EntityType.ARMOR_STAND, (as) -> as.getScoreboardTags().contains(markerName)))
+            {
+                e.remove();
+            }
+        }
     }
 
     public void setPerPlayer(boolean isPerUser)
     {
-        CarpetSettings.LOG.error("Setting per player for "+name+" of "+isPerUser);
         perUser = isPerUser;
     }
 }
