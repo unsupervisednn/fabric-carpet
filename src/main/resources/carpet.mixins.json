@@ -141,7 +141,8 @@
     "PatrolEntityMixin",
 
     "MixinThreadedAnvilChunkStorage",
-    "CustomPayloadC2SPacketAccessor"
+    "CustomPayloadC2SPacketAccessor",
+    "FallingBlockMixin"
   ],
   "client": [
     "RenderTickCounter_tickSpeedMixin",

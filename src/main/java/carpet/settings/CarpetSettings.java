@@ -80,6 +80,9 @@ public class CarpetSettings
     @Rule( desc = "XP orbs combine with other into bigger orbs", category = FEATURE )
     public static boolean combineXPOrbs = false;
 
+    @Rule(desc = "Reintroduce Dragon Egg Bedrock breaking bug from 1.12", category = {EXPERIMENTAL})
+    public static boolean dragonEggBedrockBreaking = false;
+
     @Rule(
             desc = "Empty shulker boxes can stack to 64 when dropped on the ground",
             extra = "To move them around between inventories, use shift click to move entire stacks",
