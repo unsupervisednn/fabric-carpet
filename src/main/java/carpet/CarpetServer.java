@@ -1,6 +1,7 @@
 package carpet;
 
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -15,36 +16,37 @@ import carpet.settings.CarpetSettings;
 import carpet.settings.SettingsManager;
 import carpet.utils.HUDController;
 import carpet.utils.MobAI;
+import carpet.utils.ServerStatus;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import static carpet.settings.CarpetSettings.LOG;
+
 public class CarpetServer // static for now - easier to handle all around the code, its one anyways
 {
-    public static final Random rand = new Random((int)((2>>16)*Math.random()));
+    public static final Random rand = new Random((int) ((2 >> 16) * Math.random()));
     public static MinecraftServer minecraft_server;
     public static CarpetScriptServer scriptServer;
     public static SettingsManager settingsManager;
     public static PluginChannelManager pluginChannelManager;
     public static List<CarpetExtension> extensions = new ArrayList<>();
+    public static ServerStatus status;
 
     // Separate from onServerLoaded, because a server can be loaded multiple times in singleplayer
-    public static void manageExtension(CarpetExtension extension)
-    {
+    public static void manageExtension(CarpetExtension extension) {
         extensions.add(extension);
     }
 
-    public static void onGameStarted()
-    {
+    public static void onGameStarted() {
         LoggerRegistry.initLoggers();
         settingsManager = new SettingsManager(CarpetSettings.carpetVersion, "carpet", "Carpet Mod");
         settingsManager.parseSettingsClass(CarpetSettings.class);
         extensions.forEach(CarpetExtension::onGameStarted);
     }
 
-    public static void onServerLoaded(MinecraftServer server)
-    {
+    public static void onServerLoaded(MinecraftServer server) {
         pluginChannelManager = new PluginChannelManager(server);
         pluginChannelManager.register(new StructureChannel());
         extensions.add(pluginChannelManager);
@@ -59,10 +61,17 @@ public class CarpetServer // static for now - easier to handle all around the co
         scriptServer = new CarpetScriptServer();
         scriptServer.loadAllWorldScripts();
         MobAI.resetTrackers();
+
+        if (CarpetSettings.serverStatusOn) {
+            try {
+                status = new ServerStatus(CarpetSettings.serverStatusPort, server);
+            } catch (Exception ex) {
+                LOG.error("Failed to start Status server:\n" + ex.getMessage());
+            }
+        }
     }
 
-    public static void tick(MinecraftServer server)
-    {
+    public static void tick(MinecraftServer server) {
         TickSpeed.tick(server);
         HUDController.update_hud(server);
         scriptServer.tick();
@@ -76,8 +85,7 @@ public class CarpetServer // static for now - easier to handle all around the co
         extensions.forEach(e -> e.onTick(server));
     }
 
-    public static void registerCarpetCommands(CommandDispatcher<ServerCommandSource> dispatcher)
-    {
+    public static void registerCarpetCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
         TickCommand.register(dispatcher);
         CounterCommand.register(dispatcher);
         LogCommand.register(dispatcher);
@@ -96,20 +104,17 @@ public class CarpetServer // static for now - easier to handle all around the co
         //TestCommand.register(dispatcher);
     }
 
-    public static void onPlayerLoggedIn(ServerPlayerEntity player)
-    {
+    public static void onPlayerLoggedIn(ServerPlayerEntity player) {
         LoggerRegistry.playerConnected(player);
         extensions.forEach(e -> e.onPlayerLoggedIn(player));
     }
 
-    public static void onPlayerLoggedOut(ServerPlayerEntity player)
-    {
+    public static void onPlayerLoggedOut(ServerPlayerEntity player) {
         LoggerRegistry.playerDisconnected(player);
         extensions.forEach(e -> e.onPlayerLoggedOut(player));
     }
 
-    public static void onServerClosed(MinecraftServer server)
-    {
+    public static void onServerClosed(MinecraftServer server) {
         scriptServer.onClose();
         settingsManager.detachServer();
         LoggerRegistry.stopLoggers();

@@ -244,6 +244,15 @@ public class CarpetSettings
     @Rule( desc = "Pillager patrols' lag prevention", category = FEATURE )
     public static boolean cancelPillagerPatrols = false;
 
+    @Rule( desc = "Exposes server status HTTP endpoint", category = FEATURE )
+    public static boolean serverStatusOn = false;
+
+    @Rule( desc = "Server status port", category = FEATURE )
+    public static int serverStatusPort = 3141;
+
+    @Rule( desc = "Server status secret", category = FEATURE )
+    public static String serverStatusSecret = "CHANGE_ME";
+
     @Rule(
             desc = "Enables /log command to monitor events in the game via chat and overlays",
             category = COMMAND//,
