@@ -4,10 +4,15 @@ import carpet.script.exception.InternalExpressionException;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.registry.Registry;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static carpet.script.value.NBTSerializableValue.nameFromRegistryId;
 import static java.lang.Math.abs;
 
 public class ListValue extends AbstractListValue implements ContainerValueInterface
@@ -38,6 +43,15 @@ public class ListValue extends AbstractListValue implements ContainerValueInterf
     {
         return new ListValue(items);
     }
+
+    @Override
+    public Value deepcopy()
+    {
+        List<Value> copyItems = new ArrayList<>(items.size());
+        for (Value entry: items) copyItems.add(entry.deepcopy());
+        return new ListValue(copyItems);
+    }
+
     public ListValue(Collection<? extends Value> list)
     {
         items = new ArrayList<>();
@@ -49,7 +63,7 @@ public class ListValue extends AbstractListValue implements ContainerValueInterf
         if (itemstack == null || itemstack.isEmpty())
             return Value.NULL;
         return ListValue.of(
-                new StringValue(Registry.ITEM.getId(itemstack.getItem()).getPath()),
+                new StringValue(nameFromRegistryId(Registry.ITEM.getId(itemstack.getItem()))),
                 new NumericValue(itemstack.getCount()),
                 NBTSerializableValue.fromStack(itemstack)
         );

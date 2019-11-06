@@ -21,6 +21,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.Collection;
@@ -71,6 +72,13 @@ public class NBTSerializableValue extends Value implements ContainerValueInterfa
         return Value.NULL;
     }
 
+    public static String nameFromRegistryId(Identifier id)
+    {
+        if (id.getNamespace().equals("minecraft"))
+            return id.getPath();
+        return id.toString();
+    }
+
     public static NBTSerializableValue parseString(String nbtString)
     {
         Tag tag;
@@ -87,11 +95,26 @@ public class NBTSerializableValue extends Value implements ContainerValueInterfa
         return value;
     }
 
+
+    @Override
     public Value clone()
     {
-        return new NBTSerializableValue(getTag().copy());
+        // sets only nbttag, even if emtpy;
+        NBTSerializableValue copy = new NBTSerializableValue(nbtTag);
+        copy.nbtSupplier = this.nbtSupplier;
+        copy.nbtString = this.nbtString;
+        return copy;
     }
 
+    @Override
+    public Value deepcopy()
+    {
+        NBTSerializableValue copy = (NBTSerializableValue) clone();
+        // same fields except when tag is set - need to copy it.
+        if (copy.nbtTag != null)
+            copy.nbtTag = copy.getTag().copy();
+        return copy;
+    }
 
     public static InventoryLocator locateInventory(CarpetContext c, List<LazyValue> params, int offset)
     {

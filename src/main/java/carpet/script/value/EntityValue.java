@@ -56,6 +56,9 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static carpet.script.value.NBTSerializableValue.nameFromRegistryId;
+
+// TODO: decide whether copy(entity) should duplicate entity in the world.
 public class EntityValue extends Value
 {
     private Entity entity;
@@ -197,7 +200,7 @@ public class EntityValue extends Value
         put("motion_z", (e, a) -> new NumericValue(e.getVelocity().z));
         put("name", (e, a) -> new StringValue(e.getDisplayName().getString()));
         put("custom_name", (e, a) -> e.hasCustomName()?new StringValue(e.getCustomName().getString()):Value.NULL);
-        put("type", (e, a) -> new StringValue(Registry.ENTITY_TYPE.getId(e.getType()).toString().replaceFirst("minecraft:","")));
+        put("type", (e, a) -> new StringValue(nameFromRegistryId(Registry.ENTITY_TYPE.getId(e.getType()))));
         put("is_riding", (e, a) -> new NumericValue(e.hasVehicle()));
         put("is_ridden", (e, a) -> new NumericValue(e.hasPassengers()));
         put("passengers", (e, a) -> ListValue.wrap(e.getPassengerList().stream().map(EntityValue::new).collect(Collectors.toList())));
@@ -217,7 +220,7 @@ public class EntityValue extends Value
         put("immune_to_fire", (e, a) -> new NumericValue(e.isFireImmune()));
 
         put("invulnerable", (e, a) -> new NumericValue(e.isInvulnerable()));
-        put("dimension", (e, a) -> new StringValue(e.dimension.toString().replaceFirst("minecraft:","")));
+        put("dimension", (e, a) -> new StringValue(nameFromRegistryId(Registry.DIMENSION.getId(e.dimension))));
         put("height", (e, a) -> new NumericValue(e.getDimensions(EntityPose.STANDING).height));
         put("width", (e, a) -> new NumericValue(e.getDimensions(EntityPose.STANDING).width));
         put("eye_height", (e, a) -> new NumericValue(e.getEyeHeight(EntityPose.STANDING)));
@@ -418,7 +421,14 @@ public class EntityValue extends Value
     {
         if (!(featureModifiers.containsKey(what)))
             throw new InternalExpressionException("Unknown entity action: " + what);
-        featureModifiers.get(what).accept(entity, toWhat);
+        try
+        {
+            featureModifiers.get(what).accept(entity, toWhat);
+        }
+        catch (NullPointerException npe)
+        {
+            throw new InternalExpressionException("'modify' for '"+what+"' expects a value");
+        }
     }
 
     private static void updatePosition(Entity e, double x, double y, double z, float yaw, float pitch)
@@ -720,6 +730,22 @@ public class EntityValue extends Value
             {
                 ((ItemEntity) e).setPickupDelay((int)NumericValue.asNumber(v).getLong());
             }
+        });
+
+        put("ai", (e, v) ->
+        {
+            if (e instanceof MobEntity)
+            {
+                ((MobEntity) e).setAiDisabled(!v.getBoolean());
+            }
+        });
+
+        put("no_clip", (e, v) ->
+        {
+            if (v == null)
+                e.noClip = true;
+            else
+                e.noClip = v.getBoolean();
         });
 
         // gamemode

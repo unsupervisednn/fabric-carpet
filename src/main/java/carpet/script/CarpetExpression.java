@@ -50,6 +50,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.predicate.entity.EntityPredicates;
@@ -76,6 +77,7 @@ import net.minecraft.world.LightType;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.dimension.DimensionType;
 import net.minecraft.world.loot.context.LootContext;
 import net.minecraft.world.loot.context.LootContextParameters;
@@ -94,6 +96,7 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static carpet.script.value.NBTSerializableValue.nameFromRegistryId;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -788,8 +791,16 @@ public class CarpetExpression
         {
             BlockPos pos = BlockValue.fromParams((CarpetContext)c, lv, 0).block.getPos();
             Value retval = ((CarpetContext)c).s.getWorld().getChunkManager().shouldTickChunk(new ChunkPos(pos))?Value.TRUE : Value.FALSE;
-            //Value retval = ((CarpetContext)c).s.getWorld().isAreaLoaded(pos.getX() - 32, 0, pos.getZ() - 32,
-            //        pos.getX() + 32, 0, pos.getZ() + 32) ? Value.TRUE : Value.FALSE;
+            return (c_, t_) -> retval;
+        });
+
+        this.expr.addLazyFunction("loaded_status", -1, (c, t, lv) ->
+        {
+            BlockPos pos = BlockValue.fromParams((CarpetContext)c, lv, 0).block.getPos();
+            WorldChunk chunk = ((CarpetContext)c).s.getWorld().getChunkManager().getWorldChunk(pos.getX()>>4, pos.getZ()>>4, false);
+            if (chunk == null)
+                return LazyValue.ZERO;
+            Value retval = new NumericValue(chunk.getLevelType().ordinal());
             return (c_, t_) -> retval;
         });
 
@@ -1663,6 +1674,8 @@ public class CarpetExpression
      * <p>Removes tag from entity.</p>
      * <h3><code>modify(e, 'talk')</code></h3>
      * <p>Make noises.</p>
+     * <h3><code>modify(e, 'ai', boolean)</code></h3>
+     * <p>If called with <code>false</code> value, it will disable AI in the mob. <code>true</code> will enable it again.</p>
      * <h3><code>modify(e, 'home', null), modify(e, 'home', block, distance?), modify(e, 'home', x, y, z, distance?)</code></h3>
      * <p>Sets AI to stay around the home position, within <code>distance</code> blocks from it. <code>distance</code>
      * defaults to 16 blocks. <code>null</code> removes it. <i>May</i> not work fully with mobs that have this AI built in, like
@@ -2431,14 +2444,20 @@ public class CarpetExpression
      * <p>Renders a cuboid of particles between point <code>pos</code> to <code>pos2</code> with supplied density.</p>
      * <h2>Markers</h2>
      * <h3><code>create_marker(text, pos, rotation?, block?)</code></h3>
-     * <p>Spawns a (permanent) marker entity with text or block at position. Returns that entity for further manipulations</p>
+     * <p>Spawns a (permanent) marker entity with text or block at position. Returns that entity for further manipulations.
+     * Unloading the app that spawned them will cause all the markers from the loaded portion of the world to be removed.
+     * Also - if the game loads that marker in the future and the app is not loaded, it will be removed as well.</p>
      * <h3><code>remove_all_markers()</code></h3>
-     * <p>Removes all scarpet markers from the loaded portion of the world in case you didn't want to do the cleanup</p>
+     * <p>Removes all scarpet markers from the loaded portion of the world created by this app, in case you didn't want
+     * to do the proper cleanup</p>
      * <h2>System function</h2>
      * <h3><code>nbt(expr)</code></h3>
      * <p>Treats the argument as a nbt serializable string and returns its nbt value.
      * In case nbt is not in a correct nbt compound tag format, it will return <code>null</code> value.</p>
      * <p>Consult section about container operations in <code>Expression</code> to learn about possible operations on nbt values.</p>
+     * <h3><code>escape_nbt(expr)</code></h3>
+     * <p>Excapes all the special characters in the string or nbt tag and returns a string that can be stored in nbt directly as
+     * a string value.</p>
      * <h3><code>print(expr)</code></h3>
      * <p>Displays the result of the expression to the chat. Overrides default <code>scarpet</code> behaviour of
      * sending everyting to stderr.</p>
@@ -2778,6 +2797,13 @@ public class CarpetExpression
             return (cc, tt) -> ret;
         });
 
+        this.expr.addLazyFunction("escape_nbt", 1, (c, t, lv) -> {
+            Value v = lv.get(0).evalValue(c);
+            String string = v.getString();
+            Value ret = new StringValue(StringTag.escape(string));
+            return (cc, tt) -> ret;
+        });
+
         //"overridden" native call that prints to stderr
         this.expr.addLazyFunction("print", 1, (c, t, lv) ->
         {
@@ -2853,7 +2879,7 @@ public class CarpetExpression
 
         this.expr.addLazyFunction("current_dimension", 0, (c, t, lv) -> {
             ServerCommandSource s = ((CarpetContext)c).s;
-            Value retval = new StringValue(s.getWorld().dimension.getType().toString().replaceFirst("minecraft:",""));
+            Value retval = new StringValue(nameFromRegistryId(Registry.DIMENSION.getId(s.getWorld().dimension.getType())));
             return (cc, tt) -> retval;
         });
 
@@ -3129,7 +3155,8 @@ public class CarpetExpression
      * <div style="padding-left: 20px; border-radius: 5px 45px; border:1px solid grey;">
      * <p><code>invoke</code> family of commands provide convenient way to invoke stored procedures (i.e. functions
      * that has been defined previously by any running script. To view current stored procedure set,
-     * run <code>/script globals</code>, to define a new stored procedure, just run a <code>/script run function(a,b) -&gt; ( ... )</code>
+     * run <code>/script globals</code>(or <code>/script globals all</code> to display all functions even hidden ones),
+     * to define a new stored procedure, just run a <code>/script run function(a,b) -&gt; ( ... )</code>
      * command with your procedure once, and to forget a procedure, use <code>undef</code> function:
      * <code>/script run undef('function')</code></p>
      * <h2></h2>
