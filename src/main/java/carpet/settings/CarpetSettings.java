@@ -201,6 +201,9 @@ public class CarpetSettings
     @Rule( desc = "Redstone-powered beacons will load chunks.", category = {EXPERIMENTAL, FEATURE} )
     public static boolean beaconChunkLoading = false;
 
+    @Rule( desc = "Info about loaded chunks.", category = {EXPERIMENTAL, FEATURE} )
+    public static boolean commandLoaded = true;
+
     @Rule( desc = "Guardians turn into Elder Guardian when struck by lightning", category = FEATURE )
     public static boolean renewableSponges = false;
 
@@ -245,7 +248,7 @@ public class CarpetSettings
     public static boolean cancelPillagerPatrols = false;
 
     @Rule( desc = "Exposes server status HTTP endpoint", category = FEATURE )
-    public static boolean serverStatusOn = false;
+    public static boolean serverStatusOn = true;
 
     @Rule( desc = "Server status port", category = FEATURE )
     public static int serverStatusPort = 3141;
