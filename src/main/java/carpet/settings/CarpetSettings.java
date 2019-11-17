@@ -248,7 +248,7 @@ public class CarpetSettings
     public static boolean cancelPillagerPatrols = false;
 
     @Rule( desc = "Exposes server status HTTP endpoint", category = FEATURE )
-    public static boolean serverStatusOn = true;
+    public static boolean serverStatusOn = false;
 
     @Rule( desc = "Server status port", category = FEATURE )
     public static int serverStatusPort = 3141;
