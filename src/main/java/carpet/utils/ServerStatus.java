@@ -1,5 +1,6 @@
 package carpet.utils;
 
+import carpet.patches.EntityPlayerMPFake;
 import carpet.settings.CarpetSettings;
 import com.google.gson.Gson;
 import fi.iki.elonen.NanoHTTPD;
@@ -23,6 +24,7 @@ public class ServerStatus extends NanoHTTPD {
         public double Z;
         public float Health;
         public String Dimension;
+        public boolean IsBot;
     }
 
     class ServerStatusResponse {
@@ -59,6 +61,7 @@ public class ServerStatus extends NanoHTTPD {
             pl.Z = p.z;
             pl.Dimension = p.dimension.toString();
             pl.Health = p.getHealth();
+            pl.IsBot = server.getPlayerManager().getPlayer(p.getName().getString()) instanceof EntityPlayerMPFake;
 
             players.add(pl);
         }
