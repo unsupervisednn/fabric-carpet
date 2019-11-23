@@ -77,6 +77,7 @@ import net.minecraft.world.LightType;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.dimension.DimensionType;
 import net.minecraft.world.loot.context.LootContext;
@@ -364,6 +365,23 @@ public class CarpetExpression
      * block(0,0,0) == block('bedrock')  =&gt; 1
      * block('hopper[facing=north]{Items:[{Slot:1b,id:"minecraft:slime_ball",Count:16b}]}') =&gt; hopper
      * </pre>
+     * <p>Retrieving a block with <code>block</code> function has also a side-effect of evaluating its current state and data.
+     * so if you use it later it will reflect block state and data of the block that was when block was called, rather than
+     * when it was used. Block values passed in various places like <code>scan</code> functions, etc, are not fully evaluated
+     * unless its properties are needed. This means that if the block at the location changes before its queried in the program
+     * this might result in getting the later state, which might not be desired. Consider the following example:</p>
+     * <pre>
+     * set(10,10,10,'stone');
+     * scan(10,10,10,0,0,0, b = _);
+     * set(10,10,10,'air');
+     * print(b); // 'air', block was remembered 'lazily', and evaluated by `print`, when it was already set to air
+     *
+     * set(10,10,10,'stone');
+     * scan(10,10,10,0,0,0, b = block(_));
+     * set(10,10,10,'air');
+     * print(b); // 'stone', block was evaluated 'eagerly' but call to `block`
+     *
+     * </pre>
      * <h2>World Manipulation</h2>
      * <p>All the functions below can be used with block value, queried with coord triple, or 3-long list.
      * All <code>pos</code> in the functions referenced below refer to either method of passing block position</p>
@@ -509,15 +527,28 @@ public class CarpetExpression
      * top('ocean_floor', x, y, z)  =&gt; 41
      * </pre>
      * <h3><code>loaded(pos)</code></h3>
-     * <p>Boolean function, true if the block is loaded. Normally <code>scarpet</code> doesn't check if operates on
+     * <p>Boolean function, true if the block is accessible forthe game mechanics.
+     * Normally <code>scarpet</code> doesn't check if operates on
      * loaded area - the game will automatically load missing blocks. We see this as advantage.
      * Vanilla <code>fill/clone</code> commands only check the specified corners for loadness.</p>
+     * <p>To check if block is truly loaded, I mean in memory, use <code>generation_status(x) != null</code>, as
+     * chunks can still be loaded outside of the playable area, just are not used any of the game mechanics processes.</p>
      * <pre>
      * loaded(pos(players()))  =&gt; 1
      * loaded(100000,100,1000000)  =&gt; 0
      * </pre>
-     * <h3><code>loaded_ep(pos)</code></h3>
+     * <h3><code>(Deprecated) loaded_ep(pos)</code></h3>
      * <p>Boolean function, true if the block is loaded and entity processing, as per 1.13.2</p>
+     * <p>Deprecated as of scarpet 1.6, use <code>loaded_status(x) &gt; 0</code>, or
+     * just <code>loaded(x)</code> with the same effect</p>
+     * <h3><code>loaded_status(pos)</code></h3>
+     * <p>Returns loaded status as per new 1.14 chunk ticket system, 0 for inaccessible, 1 for border chunk,
+     * 2 for ticking, 3 for entity ticking</p>
+     * <h3><code>generation_status(pos), generation_status(pos, true)</code></h3>
+     * <p>Returns generation status as per new 1.14 chunk ticket system. Can return any value from several available
+     * but chunks can only be valid in a few states: <code>full</code>, <code>features</code>, <code>liquid_carvers</code>,
+     * and <code>structure_starts</code>. Returns <code>null</code> if the chunk is not in memory unless called with optional
+     * <code>true</code>.</p>
      * <h3><code>suffocates(pos)</code></h3>
      * <p>Boolean function, true if the block causes suffocation.</p>
      * <h3><code>power(pos)</code></h3>
@@ -655,7 +686,10 @@ public class CarpetExpression
             {
                 throw new InternalExpressionException("Block requires at least one parameter");
             }
-            Value retval = BlockValue.fromParams(cc, lv, 0, true).block;
+            BlockValue retval = BlockValue.fromParams(cc, lv, 0, true).block;
+            // fixing block state and data
+            retval.getBlockState();
+            retval.getData();
             return (c_, t_) -> retval;
         });
 
@@ -787,6 +821,7 @@ public class CarpetExpression
             return (c_, t_) -> retval;
         });
 
+        // Deprecated, use loaded_status as more indicative
         this.expr.addLazyFunction("loaded_ep", -1, (c, t, lv) ->
         {
             BlockPos pos = BlockValue.fromParams((CarpetContext)c, lv, 0).block.getPos();
@@ -801,6 +836,20 @@ public class CarpetExpression
             if (chunk == null)
                 return LazyValue.ZERO;
             Value retval = new NumericValue(chunk.getLevelType().ordinal());
+            return (c_, t_) -> retval;
+        });
+
+        this.expr.addLazyFunction("generation_status", -1, (c, t, lv) ->
+        {
+            BlockValue.LocatorResult locatorResult = BlockValue.fromParams((CarpetContext)c, lv, 0);
+            BlockPos pos = locatorResult.block.getPos();
+            boolean forceLoad = false;
+            if (lv.size() > locatorResult.offset)
+                forceLoad = lv.get(locatorResult.offset).evalValue(c, Context.BOOLEAN).getBoolean();
+            Chunk chunk = ((CarpetContext)c).s.getWorld().getChunk(pos.getX()>>4, pos.getZ()>>4, ChunkStatus.EMPTY, forceLoad);
+            if (chunk == null)
+                return LazyValue.NULL;
+            Value retval = new StringValue(chunk.getStatus().getName());
             return (c_, t_) -> retval;
         });
 
@@ -1563,6 +1612,8 @@ public class CarpetExpression
      * <p>Eye height of the entity.</p>
      * <h3><code>query(e,'age')</code></h3>
      * <p>Age, in ticks, of the entity, i.e. how long it existed.</p>
+     * <h3><code>query(e,'despawn_timer')</code></h3>
+     * <p>For living entities - the number of ticks they fall outside of immediate player presence.</p>
      * <h3><code>query(e,'item')</code></h3>
      * <p>The item triple (name, count, nbt) if its an item entity, <code>null</code> otherwise</p>
      * <h3><code>query(e,'count')</code></h3>
@@ -1658,8 +1709,10 @@ public class CarpetExpression
      * <h3><code>modify(e, 'accelerate', x, y, z), modify(e, 'accelerate', l(x, y, z) )</code></h3>
      * <p>Adds a vector to the motion vector. Most realistic way to apply a force to an entity.</p>
      * <h3><code>modify(e, 'custom_name'), modify(e, 'custom_name', name )</code></h3>
-     * <h3><code>modify(e,'pickup_delay')</code></h3>
+     * <h3><code>modify(e, 'pickup_delay')</code></h3>
      * <p>Sets a custom pickup delay if the entity argument is an item entity</p>
+     * <h3><code>modify(e, 'despawn_timer')</code></h3>
+     * <p>Sets a custom despawn timer value.</p>
      * <h3><code>modify(e, 'dismount')</code></h3>
      * <p>Dismounts riding entity.</p>
      * <h3><code>modify(e, 'mount', other)</code></h3>
@@ -2057,7 +2110,8 @@ public class CarpetExpression
                         c.setVariable("_z", (c_, t_) -> new NumericValue(zFinal).bindTo("_z"));
                         Value blockValue = BlockValue.fromCoords(((CarpetContext)c), xFinal,yFinal,zFinal).bindTo("_");
                         c.setVariable( "_", (cc_, t_c) -> blockValue);
-                        if (expr.evalValue(c, Context.BOOLEAN).getBoolean())
+                        Value result = expr.evalValue(c, t);
+                        if (t != Context.VOID && result.getBoolean())
                         {
                             sCount += 1;
                         }
@@ -2109,7 +2163,8 @@ public class CarpetExpression
                         c.setVariable("_z", (c_, t_) -> new NumericValue(zFinal).bindTo("_z"));
                         Value blockValue = BlockValue.fromCoords(((CarpetContext)c), xFinal,yFinal,zFinal).bindTo("_");
                         c.setVariable( "_", (cc_, t_c) -> blockValue);
-                        if (expr.evalValue(c, Context.BOOLEAN).getBoolean())
+                        Value result = expr.evalValue(c, t);
+                        if (t != Context.VOID && result.getBoolean())
                         {
                             sCount += 1;
                         }

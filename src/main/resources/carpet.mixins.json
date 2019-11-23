@@ -140,8 +140,7 @@
     "PhantomSpawnerMixin",
     "ServerChunkManagerAccessor",
     "PatrolEntityMixin",
-
-    "MixinThreadedAnvilChunkStorage",
+    "IThreadedAnvilChunkStorage",
     "CustomPayloadC2SPacketAccessor",
     "FallingBlockMixin"
   ],

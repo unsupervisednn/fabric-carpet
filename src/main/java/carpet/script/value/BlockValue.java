@@ -254,7 +254,7 @@ public class BlockValue extends Value
     @Override
     public Value clone()
     {
-        return new BlockValue(blockState, world, pos);
+        return new BlockValue(blockState, world, pos, data);
     }
 
     @Override

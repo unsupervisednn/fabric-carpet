@@ -28,7 +28,7 @@ import static carpet.settings.RuleCategory.TNT;
 
 public class CarpetSettings
 {
-    public static final String carpetVersion = "1.2.1+v191030";
+    public static final String carpetVersion = "1.2.3+v191113";
     public static final Logger LOG = LogManager.getLogger();
     public static boolean skipGenerationChecks = false;
     public static boolean impendingFillSkipUpdates = false;
@@ -200,6 +200,9 @@ public class CarpetSettings
 
     @Rule( desc = "Redstone-powered beacons will load chunks.", category = {EXPERIMENTAL, FEATURE} )
     public static boolean beaconChunkLoading = false;
+
+    @Rule( desc = "Info about loaded chunks.", category = {EXPERIMENTAL, FEATURE} )
+    public static boolean commandLoaded = true;
 
     @Rule( desc = "Guardians turn into Elder Guardian when struck by lightning", category = FEATURE )
     public static boolean renewableSponges = false;

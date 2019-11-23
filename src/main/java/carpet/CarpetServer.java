@@ -1,7 +1,6 @@
 package carpet;
 
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -100,6 +99,7 @@ public class CarpetServer // static for now - easier to handle all around the co
         MobAICommand.register(dispatcher);
         BeaconGridCommand.register(dispatcher);
         StatsCommand.register(dispatcher);
+        LoadedCommand.register(dispatcher);
         extensions.forEach(e -> e.registerCommands(dispatcher));
         //TestCommand.register(dispatcher);
     }
