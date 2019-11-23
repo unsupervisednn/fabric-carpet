@@ -67,7 +67,7 @@ public class LoadedCommand {
             lst.add(Messenger.c(String.format("w Chunk %s: ticket lvl: %d (%s)", holder.getPos().toString(), holder.getLevel(), ll)));
         }
 
-        lst.add(Messenger.c(String.format("g Total loaded chunks for %s: %d", dim.toString(), storage.getTotalChunksLoadedCount())));
+        lst.add(Messenger.c(String.format("g Total loaded chunks for %s: %d", dim.toString(), lst.size())));
 
         Messenger.send(player, lst);
         return 1;
