@@ -18,7 +18,7 @@ public class Context
     static final int LOCALIZATION = 8;
     static final int LVALUE = 9;
 
-    private Map<String, LazyValue> variables = new HashMap<>();
+    public Map<String, LazyValue> variables = new HashMap<>();
 
     protected ScriptHost host;
 
@@ -37,7 +37,7 @@ public class Context
         return host.globalVariables.get(name);
     }
 
-    void setVariable(String name, LazyValue lv)
+    public void setVariable(String name, LazyValue lv)
     {
         if (name.startsWith("global_"))
         {
@@ -56,20 +56,6 @@ public class Context
 
     void delVariable(String variable)
     {
-        if (variable.startsWith("global_"))
-        {
-            host.globalVariables.remove(variable);
-            return;
-        }
-        variables.remove(variable);
-    }
-    void clearAll(String variable)
-    {
-        if (variable.startsWith("global_"))
-        {
-            host.globalVariables.remove(variable);
-            return;
-        }
         variables.remove(variable);
     }
 

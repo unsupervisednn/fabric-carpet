@@ -11,11 +11,15 @@ import carpet.script.Fluff.QuadFunction;
 import carpet.script.Fluff.QuinnFunction;
 import carpet.script.Fluff.SexFunction;
 import carpet.script.Fluff.TriFunction;
+import carpet.script.exception.ExitStatement;
 import carpet.script.exception.ExpressionException;
 import carpet.script.exception.InternalExpressionException;
+import carpet.script.exception.ReturnStatement;
+import carpet.script.exception.ThrowStatement;
 import carpet.script.value.AbstractListValue;
 import carpet.script.value.ContainerValueInterface;
 import carpet.script.value.FunctionSignatureValue;
+import carpet.script.value.FunctionValue;
 import carpet.script.value.GlobalValue;
 import carpet.script.value.LContainerValue;
 import carpet.script.value.LazyListValue;
@@ -187,8 +191,11 @@ import static java.lang.Math.min;
  * <h2>Functions and scoping</h2>
  * <p>
  * Users can define functions in the form <code>fun(args....) -&gt; expression </code> and they are compiled and saved
- * for further execution in this but also subsequent calls of /script command. This means that once defined functions
- * are saved with the world for further use. There are two types of variables,
+ * for further execution in this but also subsequent calls of /script command. Functions can also be assigned to variables,
+ * passed as arguments, called with <code>call</code> function, but in most cases you would want to call them directly
+ * by name, in the form of <code>fun(args...)</code>.
+ * This means that once defined functions
+ * are saved with the world for further use. For variables, there are two types of them,
  * global - which are shared anywhere in the code, and those are all which name starts with 'global_', and
  * local variables which is everything else and those are only visible inside each function.
  * This also means that all the parameters in functions are passed 'by value', not 'by reference'.
@@ -196,12 +203,12 @@ import static java.lang.Math.min;
  *
  * <h2>Outer variables</h2>
  * <p>Functions can still 'borrow' variables from the outer scope,
- * by adding them to the function signature wrapped around built-in function <code>outer</code>. What this does is
- * it borrows the reference to that variable from the outer scope to be used inside the function and any modifications to that outer
- * variable would result in changes of that value in the outer scope as well. Its like passing the parameters by reference,
- * except the calling function itself decides what variables its borrowing. Variables are borrowed from the local scope
- * when the function is defined, not used, so this can be used to modify static mutable values, without using global
- * variables. Check <code>outer(var)</code> for details.</p>
+ * by adding them to the function signature wrapped around built-in function <code>outer</code>.
+ * It adds the specified value to the function call stack so they behave exactly like capturing lambdas in Java, but
+ * unlike java captured variables don't need to be final. Scarpet will just attach their new values at the time of the
+ * function definition, even if they change later. Most value will be copied, but mutable values, like maps or lists, allow
+ * to keep the 'state' with the function, allowing them to have memory and act like objects so to speak.
+ * . Check <code>outer(var)</code> for details.</p>
  *
  *
  * <h2>Code delivery, line indicators</h2>
@@ -387,31 +394,6 @@ public class Expression implements Cloneable
         copy.expression = this.expression;
         copy.name = this.name;
         return copy;
-    }
-
-    /* Exception thrown to terminate execution mid expression (aka return statement) */
-    static class ExitStatement extends RuntimeException
-    {
-        Value retval;
-        ExitStatement(Value value)
-        {
-            retval = value;
-        }
-    }
-    static class ReturnStatement extends ExitStatement
-    {
-
-        ReturnStatement(Value value)
-        {
-            super(value);
-        }
-    }
-    static class ThrowStatement extends ExitStatement
-    {
-        ThrowStatement(Value value)
-        {
-            super(value);
-        }
     }
 
 
@@ -679,22 +661,11 @@ public class Expression implements Cloneable
             }
         });
     }
-    private void addContextFunction(Context context, String name, Expression expr, Tokenizer.Token token, List<String> arguments, List<String> globals, LazyValue code)
+    private FunctionValue addContextFunction(Context context, String name, Expression expr, Tokenizer.Token token, List<String> arguments, List<String> globals, LazyValue code)
     {
         name = name.toLowerCase(Locale.ROOT);
         if (functions.containsKey(name))
             throw new ExpressionException(expr, token, "Function "+name+" would mask a built-in function");
-        Expression function_context;
-        try
-        {
-            function_context = expr.clone();
-            function_context.name = name;
-        }
-        catch (CloneNotSupportedException e)
-        {
-            throw new ExpressionException(expr, token, "Problems in allocating global function "+name);
-        }
-
         Map<String, LazyValue> contextValues = new HashMap<>();
         for (String global : globals)
         {
@@ -708,67 +679,12 @@ public class Expression implements Cloneable
                 contextValues.put(global, lv);
             }
         }
+        if (contextValues.isEmpty()) contextValues = null;
 
-        context.host.globalFunctions.put(name, new UserDefinedFunction(arguments, function_context, token)
-        {
-            @Override
-            public LazyValue lazyEval(Context c, Integer type, Expression e, Tokenizer.Token t, List<LazyValue> lazyParams)
-            {
-                if (arguments.size() != lazyParams.size()) // something that might be subject to change in the future
-                {
-                    throw new ExpressionException(e, t,
-                            "Incorrect number of arguments for function "+name+
-                            ". Should be "+arguments.size()+", not "+lazyParams.size()+" like "+arguments
-                    );
-                }
-                Context newFrame = c.recreate();
-
-                contextValues.forEach(newFrame::setVariable);
-                for (int i=0; i<arguments.size(); i++)
-                {
-                    String arg = arguments.get(i);
-                    Value val = lazyParams.get(i).evalValue(c).reboundedTo(arg);
-                    newFrame.setVariable(arg, (cc, tt) -> val);
-                }
-                Value retVal;
-                boolean rethrow = false;
-                try
-                {
-                    retVal = code.evalValue(newFrame, type); // todo not sure if we need to propagete type / consider boolean context in defined functions - answer seems ye
-                }
-                catch (ReturnStatement returnStatement)
-                {
-                    retVal = returnStatement.retval;
-                }
-                catch (ThrowStatement throwStatement) // might not be really necessary
-                {
-                    retVal = throwStatement.retval;
-                    rethrow = true;
-                }
-                catch (InternalExpressionException exc)
-                {
-                    throw new ExpressionException(function_context, t, exc.getMessage());
-                }
-                catch (ArithmeticException exc)
-                {
-                    throw new ExpressionException(function_context, t, "Your math is wrong, "+exc.getMessage());
-                }
-                catch (ExitStatement | ExpressionException exit)
-                {
-                    throw exit;
-                }
-                catch (Exception exc)
-                {
-                    throw new ExpressionException(e, t, "Error while evaluating expression: "+exc.getMessage());
-                }
-                if (rethrow)
-                {
-                    throw new ThrowStatement(retVal);
-                }
-                Value otherRetVal = retVal;
-                return (cc, tt) -> otherRetVal;
-            }
-        });
+        FunctionValue result =  new FunctionValue(expr, token, name, code, arguments, contextValues);
+        // do not store lambda definitions
+        if (!name.equals("_")) context.host.addUserDefinedFunction(name, result);
+        return result;
     }
 
     /**
@@ -871,8 +787,8 @@ public class Expression implements Cloneable
      * scope, but not global, it needs to use <code>outer</code> function in function signature</p>
      * <h3><code>outer(arg)</code></h3>
      * <p><code>outer</code> function can only be used in the function signature, and it will
-     * cause an error everywhere else. It borrows the reference to that variable from the outer scope and allows
-     * its modification in the inner scope. This is a similar behaviour to using local variables in lambda function definitions
+     * cause an error everywhere else. It saves the value of that variable from the outer scope and allows
+     * its use in the inner scope. This is a similar behaviour to using outer variables in lambda function definitions
      * from Java, except here you have to specify which variables you want to use, and borrow</p>
      * <p>This mechanism can be used to use static mutable objects without the need of using <code>global_...</code> variables</p>
      * <pre>
@@ -887,9 +803,9 @@ public class Expression implements Cloneable
      * scoping allow to organize even larger scripts</p>
      * <h3><code>call(function, args.....)</code></h3>
      * <p>calls a user defined function with specified arguments. It is equivalent to calling <code>function(args...)</code>
-     * directly except you can use it with function name instead. This means you can pass functions to other user defined
+     * directly except you can use it with function value, or name instead. This means you can pass functions to other user defined
      * functions as arguments and call them with <code>call</code> internally. And since function definitions return the
-     * defined function name, they can be defined in place</p>
+     * defined function, they can be defined in place as anonymous functions.</p>
      * <p>Little technical note: the use of <code>_</code> in expression passed to built in functions is much more efficient due to
      * not creating new call stacks for each invoked function, but anonymous functions is the only mechanism available
      * for programmers with their own lambda arguments</p>
@@ -898,7 +814,8 @@ public class Expression implements Cloneable
      * my_map(l(1,2,3), _(x) -&gt; x*x);    // =&gt; [1,4,9]
      *
      * profile_expr(my_map(l(1,2,3), _(x) -&gt; x*x));   // =&gt; ~32000
-     * sq(x) -&gt; x*x; profile_expr(my_map(l(1,2,3),'sq'));   // =&gt; ~38000
+     * sq(x) -&gt; x*x; profile_expr(my_map(l(1,2,3), 'sq'));   // =&gt; ~36000
+     * sq = (_(x) -&gt; x*x); profile_expr(my_map(l(1,2,3), sq));   // =&gt; ~36000
      * profile_expr(map(l(1,2,3), _*_));   // =&gt; ~80000
      *
      * </pre>
@@ -944,25 +861,28 @@ public class Expression implements Cloneable
         addLazyFunctionWithDelegation("call",-1, (c, t, expr, tok, lv) -> { // adjust based on c
             if (lv.size() == 0)
                 throw new InternalExpressionException("'call' expects at least function name to call");
-            String name = lv.get(0).evalValue(c).getString();
             //lv.remove(lv.size()-1); // aint gonna cut it // maybe it will because of the eager eval changes
             if (t != Context.SIGNATURE) // just call the function
             {
-                if (!c.host.globalFunctions.containsKey(name))
+                Value functionValue = lv.get(0).evalValue(c);
+                if (!(functionValue instanceof FunctionValue))
                 {
-                    throw new InternalExpressionException("Function "+name+" is not defined yet");
+                    String name = functionValue.getString();
+                    functionValue = c.host.globalFunctions.get(name);
+                    if (functionValue == null)
+                        throw new InternalExpressionException("Function "+name+" is not defined yet");
                 }
                 List<LazyValue> lvargs = new ArrayList<>(lv.size()-1);
                 for (int i=1; i< lv.size(); i++)
                 {
                     lvargs.add(lv.get(i));
                 }
-                UserDefinedFunction acf = c.host.globalFunctions.get(name);
-                Value retval = acf.lazyEval(c, t, acf.expression, acf.token, lvargs).evalValue(c);
+                FunctionValue fun = (FunctionValue)functionValue;
+                Value retval = fun.callInContext(expr, c, t, fun.getExpression(), fun.getToken(), lvargs).evalValue(c);
                 return (cc, tt) -> retval; ///!!!! dono might need to store expr and token in statics? (e? t?)
             }
-
             // gimme signature
+            String name = lv.get(0).evalValue(c).getString();
             List<String> args = new ArrayList<>();
             List<String> globals = new ArrayList<>();
             for (int i = 1; i < lv.size(); i++)
@@ -981,8 +901,6 @@ public class Expression implements Cloneable
                     args.add(v.boundVariable);
                 }
             }
-            if (name.equals("_"))
-                name = "__lambda_"+tok.lineno+"_"+tok.linepos;
             Value retval = new FunctionSignatureValue(name, args, globals);
             return (cc, tt) -> retval;
         });
@@ -1003,20 +921,11 @@ public class Expression implements Cloneable
         addLazyBinaryOperatorWithDelegation("->", precedence.get("def->"), false, (c, type, e, t, lv1, lv2) ->
         {
             Value v1 = lv1.evalValue(c, Context.SIGNATURE);
-            String result;
-            if (v1 instanceof FunctionSignatureValue)
-            {
-                FunctionSignatureValue sign = (FunctionSignatureValue) v1;
-                addContextFunction(c, sign.getName(), e, t, sign.getArgs(), sign.getGlobals(), lv2);
-                result = sign.getName();
-            }
-            else
-            {
-                v1.assertAssignable();
-                c.setVariable(v1.getVariable(), lv2);
-                result = v1.getVariable();
-            }
-            return (cc, tt) -> new StringValue(result);
+            if (!(v1 instanceof FunctionSignatureValue))
+                throw new InternalExpressionException("'->' operator requires a function signature on the LHS");
+            FunctionSignatureValue sign = (FunctionSignatureValue) v1;
+            Value result = addContextFunction(c, sign.getName(), e, t, sign.getArgs(), sign.getGlobals(), lv2);
+            return (cc, tt) -> result;
         });
 
         addFunction("exit", (lv) -> { throw new ExitStatement(lv.size()==0?Value.NULL:lv.get(0)); });
@@ -2955,26 +2864,48 @@ public class Expression implements Cloneable
 
         addLazyFunction("undef", 1, (c, t, lv) ->
         {
-            String varname = lv.get(0).evalValue(c).getString();
-            if (varname.startsWith("_"))
-                throw new InternalExpressionException("Cannot replace local built-in variables, i.e. those that start with '_'");
-            if (varname.endsWith("*"))
+            Value remove = lv.get(0).evalValue(c);
+            if (remove instanceof FunctionValue)
             {
+                c.host.delFunction(remove.getString());
+                return (cc, tt) -> Value.NULL;
+            }
+            String varname = remove.getString();
+            boolean isPrefix = varname.endsWith("*");
+            if (isPrefix)
                 varname = varname.replaceAll("\\*+$", "");
+            if (isPrefix)
+            {
                 for (String key: c.host.globalFunctions.keySet())
                 {
-                    if (key.startsWith(varname)) c.host.globalFunctions.remove(key);
+                    if (key.startsWith(varname)) c.host.delFunction(key);
                 }
-                for (String key: c.host.globalVariables.keySet())
+                if (varname.startsWith("global_"))
                 {
-                    if (key.startsWith(varname)) c.host.globalVariables.remove(key);
+                    for (String key : c.host.globalVariables.keySet())
+                    {
+                        if (key.startsWith(varname)) c.host.delGlobalVariable(key);
+                    }
                 }
-                c.clearAll(varname);
+                if (!varname.startsWith("_"))
+                {
+                    for (String key : c.variables.keySet())
+                    {
+                        if (key.startsWith(varname)) c.delVariable(key);
+                    }
+                }
             }
             else
             {
-                c.host.globalFunctions.remove(varname);
-                c.delVariable(varname);
+                c.host.delFunction(varname);
+                if (varname.startsWith("global_"))
+                {
+                    c.host.delGlobalVariable(varname);
+                }
+                if (!varname.startsWith("_"))
+                {
+                    c.delVariable(varname);
+                }
             }
             return (cc, tt) -> Value.NULL;
         });
