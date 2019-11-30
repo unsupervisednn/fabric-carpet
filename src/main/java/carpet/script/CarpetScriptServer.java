@@ -1,6 +1,7 @@
 package carpet.script;
 
 import carpet.script.bundled.BundledModule;
+import carpet.script.value.FunctionValue;
 import carpet.script.value.MapValue;
 import carpet.script.value.StringValue;
 import carpet.settings.CarpetSettings;
@@ -35,8 +36,8 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class CarpetScriptServer
 {
     //make static for now, but will change that later:
-    public ScriptHost globalHost;
-    public Map<String, ScriptHost> modules;
+    public CarpetScriptHost globalHost;
+    public Map<String, CarpetScriptHost> modules;
     long tickStart;
     public boolean stopAll;
     Set<String> holyMoly;
@@ -128,9 +129,9 @@ public class CarpetScriptServer
     }
 
 
-    private ScriptHost createMinecraftScriptHost(String name, ModuleInterface module, boolean perPlayer, ServerCommandSource source)
+    private CarpetScriptHost createMinecraftScriptHost(String name, ModuleInterface module, boolean perPlayer, ServerCommandSource source)
     {
-        ScriptHost host = new ScriptHost(name, module, perPlayer, null );
+        CarpetScriptHost host = new CarpetScriptHost(this, name, module, perPlayer, null );
         host.globalVariables.put("_x", (c, t) -> Value.ZERO);
         host.globalVariables.put("_y", (c, t) -> Value.ZERO);
         host.globalVariables.put("_z", (c, t) -> Value.ZERO);
@@ -165,7 +166,7 @@ public class CarpetScriptServer
         //TODO add per player modules to support player actions better on a server
         name = name.toLowerCase(Locale.ROOT);
         ModuleInterface module = getModule(name);
-        ScriptHost newHost = createMinecraftScriptHost(name, module, perPlayer, source);
+        CarpetScriptHost newHost = createMinecraftScriptHost(name, module, perPlayer, source);
         if (newHost == null)
         {
             Messenger.m(source, "r Failed to add "+name+" app");
@@ -191,7 +192,7 @@ public class CarpetScriptServer
             removeScriptHost(source, name);
             return false;
         }
-        addEvents(source, name);
+        //addEvents(source, name);
         addCommand(source, name);
         return true;
     }
@@ -199,7 +200,7 @@ public class CarpetScriptServer
 
     private boolean addConfig(ServerCommandSource source, String hostName)
     {
-        ScriptHost host = modules.get(hostName);
+        CarpetScriptHost host = modules.get(hostName);
         if (host == null || !host.globalFunctions.containsKey("__config"))
         {
             return false;
@@ -219,6 +220,7 @@ public class CarpetScriptServer
     }
     private void addEvents(ServerCommandSource source, String hostName)
     {
+        if (1+2 == 3) throw new RuntimeException("This should run when code is evaluated");
         ScriptHost host = modules.get(hostName);
         if (host == null)
         {
@@ -365,19 +367,19 @@ public class CarpetScriptServer
         return true;
     }
 
-    public boolean runas(ServerCommandSource source, String hostname, String udf_name, List<LazyValue> argv)
+    public boolean runas(ServerCommandSource source, String hostname, FunctionValue udf, List<LazyValue> argv)
     {
-        return runas(BlockPos.ORIGIN, source, hostname, udf_name, argv);
+        return runas(BlockPos.ORIGIN, source, hostname, udf, argv);
     }
 
-    public boolean runas(BlockPos origin, ServerCommandSource source, String hostname, String udf_name, List<LazyValue> argv)
+    public boolean runas(BlockPos origin, ServerCommandSource source, String hostname, FunctionValue udf, List<LazyValue> argv)
     {
-        ScriptHost host = globalHost;
+        CarpetScriptHost host = globalHost;
         try
         {
             if (hostname != null)
                 host = modules.get(hostname).retrieveForExecution(source);
-            host.callUDF(origin, source, host.globalFunctions.get(udf_name), argv);
+            host.callUDF(origin, source, udf, argv);
         }
         catch (NullPointerException | InvalidCallbackException npe)
         {
@@ -389,7 +391,7 @@ public class CarpetScriptServer
     public void tick()
     {
         events.tick();
-        for (ScriptHost host : modules.values())
+        for (CarpetScriptHost host : modules.values())
         {
             host.tick();
         }

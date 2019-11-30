@@ -37,7 +37,12 @@ public class BeaconMixin {
     }
 
     private void setLoad(World world_1, BlockPos blockPos_1, boolean set) {
+        if (null == world_1.getServer()) {
+            return;
+        }
+
         ChunkPos ch = world_1.getChunk(blockPos_1).getPos();
-        ((ServerWorld) world_1).setChunkForced(ch.x, ch.z, set);
+
+        world_1.getServer().getWorld(world_1.getDimension().getType()).setChunkForced(ch.x, ch.z, set);
     }
 }

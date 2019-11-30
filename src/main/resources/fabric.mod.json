@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "carpet",
-  "version": "1.2.3",
+  "version": "1.2.4",
 
   "name": "Carpet Mod in Fabric",
   "description": "Carpet made out of fabric",
@@ -26,6 +26,7 @@
   ],
 
   "depends": {
+    "minecraft": "1.14.x",
     "fabricloader": ">=0.4.0"
   },
   "suggests": {
