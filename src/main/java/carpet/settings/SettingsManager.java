@@ -185,6 +185,23 @@ public class SettingsManager
         }));
     }
 
+    public static boolean canUseCommand(ServerCommandSource source, String commandLevel)
+    {
+        switch (commandLevel)
+        {
+            case "true": return true;
+            case "false": return false;
+            case "ops": return source.hasPermissionLevel(2); // typical for other cheaty commands
+            case "0":
+            case "1":
+            case "2":
+            case "3":
+            case "4":
+                return source.hasPermissionLevel(Integer.parseInt(commandLevel));
+        }
+        return false;
+    }
+
     private void loadConfigurationFromConf()
     {
         for (ParsedRule<?> rule : rules.values()) rule.resetToDefault(server.getCommandSource());
@@ -259,9 +276,7 @@ public class SettingsManager
         }
     }
 
-
-
-    public Collection<ParsedRule<?>> getRulesMatching(String search) {
+    private Collection<ParsedRule<?>> getRulesMatching(String search) {
         String lcSearch = search.toLowerCase(Locale.ROOT);
         return rules.values().stream().filter(rule ->
         {
@@ -270,7 +285,7 @@ public class SettingsManager
             if (Sets.newHashSet(rule.description.toLowerCase(Locale.ROOT).split("\\W+")).contains(lcSearch))
                 return true; // contains full term in description, but case insensitive
             return false;
-        }).collect(ImmutableList.toImmutableList());
+        }).sorted().collect(ImmutableList.toImmutableList());
     }
 
     public int printAllRulesToLog(String category)
@@ -415,8 +430,8 @@ public class SettingsManager
     {
         if (rule.set(source, newValue) != null)
             Messenger.m(source, "w "+rule.toString()+", ", "c [change permanently?]",
-                    "^w Click to keep the settings in carpet.conf to save across restarts",
-                    "?/carpet setDefault "+rule.name+" "+rule.getAsString());
+                    "^w Click to keep the settings in "+identifier+".conf to save across restarts",
+                    "?/"+identifier+" setDefault "+rule.name+" "+rule.getAsString());
         return 1;
     }
 
