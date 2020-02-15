@@ -1,7 +1,7 @@
 package carpet.mixins;
 
 import carpet.helpers.DragonEggBedrockBreaking;
-import carpet.settings.CarpetSettings;
+import carpet.CarpetSettings;
 import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.gen.chunk.ChunkGenerator;

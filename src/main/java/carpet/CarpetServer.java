@@ -11,7 +11,6 @@ import carpet.logging.LoggerRegistry;
 import carpet.network.PluginChannelManager;
 import carpet.network.channels.StructureChannel;
 import carpet.script.CarpetScriptServer;
-import carpet.settings.CarpetSettings;
 import carpet.settings.SettingsManager;
 import carpet.utils.HUDController;
 import carpet.utils.MobAI;
@@ -21,21 +20,28 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import static carpet.settings.CarpetSettings.LOG;
 
 public class CarpetServer // static for now - easier to handle all around the code, its one anyways
 {
-    public static final Random rand = new Random((int) ((2 >> 16) * Math.random()));
+    public static final Random rand = new Random();
     public static MinecraftServer minecraft_server;
+    private static CommandDispatcher<ServerCommandSource> currentCommandDispatcher;
     public static CarpetScriptServer scriptServer;
     public static SettingsManager settingsManager;
     public static PluginChannelManager pluginChannelManager;
-    public static List<CarpetExtension> extensions = new ArrayList<>();
     public static ServerStatus status;
+    public static final List<CarpetExtension> extensions = new ArrayList<>();
 
     // Separate from onServerLoaded, because a server can be loaded multiple times in singleplayer
     public static void manageExtension(CarpetExtension extension) {
         extensions.add(extension);
+        // for extensions that come late to the party, after server is created / loaded
+        // we will handle them now.
+        // that would handle all extensions, even these that add themselves really late to the party
+        if (currentCommandDispatcher != null)
+        {
+            extension.registerCommands(currentCommandDispatcher);
+        }
     }
 
     public static void onGameStarted() {
@@ -65,7 +71,7 @@ public class CarpetServer // static for now - easier to handle all around the co
             try {
                 status = new ServerStatus(CarpetSettings.serverStatusPort, server);
             } catch (Exception ex) {
-                LOG.error("Failed to start Status server:\n" + ex.getMessage());
+                CarpetSettings.LOG.error("Failed to start Status server:\n" + ex.getMessage());
             }
         }
     }
@@ -100,7 +106,10 @@ public class CarpetServer // static for now - easier to handle all around the co
         BeaconGridCommand.register(dispatcher);
         StatsCommand.register(dispatcher);
         LoadedCommand.register(dispatcher);
+        // registering command of extensions that has registered before either server is created
+        // for all other, they will have them registered when they add themselves
         extensions.forEach(e -> e.registerCommands(dispatcher));
+        currentCommandDispatcher = dispatcher;
         //TestCommand.register(dispatcher);
     }
 
@@ -114,7 +123,9 @@ public class CarpetServer // static for now - easier to handle all around the co
         extensions.forEach(e -> e.onPlayerLoggedOut(player));
     }
 
-    public static void onServerClosed(MinecraftServer server) {
+    public static void onServerClosed(MinecraftServer server)
+    {
+        currentCommandDispatcher = null;
         scriptServer.onClose();
         settingsManager.detachServer();
         LoggerRegistry.stopLoggers();
